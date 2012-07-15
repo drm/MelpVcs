@@ -1,0 +1,3 @@
+<phpunit bootstrap="autoload.php">
+
+</phpunit>
