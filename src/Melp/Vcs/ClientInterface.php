@@ -7,10 +7,10 @@ namespace Melp\Vcs;
 
 interface ClientInterface {
     function init($remote);
-    function branch($name);
+    function branch($name, $switch = true);
     function tag($name);
     function get($path);
-    function ls($path);
+    function ls($path = '');
     function rm($path, $message);
     function put($path, $content, $message);
     function push();

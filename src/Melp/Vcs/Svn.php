@@ -1,38 +1,25 @@
 <?php
-namespace Melp\Vcs;
+/**
+ * @author Gerard van Helden <drm@melp.nl>
+ * @copyright Gerard van Helden
+ */
 
-use \Symfony\Component\Process\Process;
+namespace Melp\Vcs;
 
 class Svn implements ClientInterface
 {
-    public static $binary = '/usr/bin/svn';
-
-    protected $username;
-    protected $password;
     protected $remote;
     protected $messages = array();
-    protected $globalOpts;
 
-    function __construct($checkoutRoot = null, $workingCopyCallback = 'rand')
+
+    function __construct(Svn\AdapterInterface $adapter)
     {
-        $this->wd = $checkoutRoot ?: sys_get_temp_dir() . '/' . call_user_func($workingCopyCallback);
-    }
-
-
-    function setUsername($username)
-    {
-        $this->globalOpts[]= array('--username', $username);
-    }
-
-
-    function setPassword($password)
-    {
-        $this->globalOpts[]= array('--password', $password);
+        $this->adapter = $adapter;
     }
 
     function rm($path, $message)
     {
-        $this->svn('rm', $this->local($path));
+        $this->svn('rm', $path);
         $this->messages[]= $message;
     }
 
@@ -40,37 +27,121 @@ class Svn implements ClientInterface
     function init($remote)
     {
         $this->remote = $remote;
+        $this->adapter->init($remote);
         $this->pull();
     }
 
-    function branch($name)
+    function branch($name, $switch = true, $msg = 'Branched %s to %s')
     {
-        throw new \RuntimeException("Not implemented");
+        $branch = $this->getBranchUrl($name);
+        $this->svn('cp', $this->remote, $branch, '--message', sprintf($msg, $this->remote, $branch));
+        if ($switch) {
+            $this->checkout($name);
+        }
     }
 
-    function tag($name)
+
+    function checkout($branch)
     {
-        throw new \RuntimeException("Not implemented");
+        if ($branch === null) {
+            $remoteBranch = $this->getTrunkUrl();
+        } else {
+            $remoteBranch = $this->getBranchUrl($branch);
+        }
+        $this->svn('switch', $remoteBranch);
     }
+
+
+    function getBranchUrl($name)
+    {
+        return $this->getPseudoRoot() . '/branches/' . $name;
+    }
+
+
+    function getTagUrl($name)
+    {
+        return $this->getPseudoRoot() . '/tags/' . $name;
+    }
+
+
+    function getTrunkUrl()
+    {
+        return $this->getPseudoRoot() . '/trunk';
+    }
+
+    static function splitUrl($url, $part = null)
+    {
+        if (!preg_match('~(.*)((branches|tags)/[^/]+|trunk)/?$~', $url, $m)) {
+            throw new \UnexpectedValueException("Can not find pseudo root for url {$url}");
+        }
+        $ret = array(rtrim($m[1], '/'), $m[2]);
+        if (null !== $part) {
+            $ret = $ret[$part];
+        }
+        return $ret;
+    }
+
+    private function getPseudoRoot()
+    {
+        return self::splitUrl($this->remote, 0);
+    }
+
+    /**
+     * @param $name
+     * @param string $msg
+     *
+     * TODO probably tag from local revision number in stead of remote url, or check local working copy state.
+     */
+    function tag($name, $msg = "Tagged %s as %s")
+    {
+        $this->svn('cp', $this->remote, $this->getTagUrl($name), '--message', sprintf($msg, $this->remote, $this->getTagUrl($name)));
+    }
+
 
     function get($path)
     {
-        return file_get_contents($this->local($path));
+        try {
+            return $this->svn('cat', $path);
+        } catch(Svn\CommandFailedException $e) {
+            return null;
+        }
     }
 
-    function ls($path)
+    function ls($path = '')
     {
-        return $this->svn('ls', $this->local($path));
+        $ret = array();
+        foreach (simplexml_load_string($this->svn('ls', '--xml', $path))->list as $list) {
+            foreach ($list as $entry) {
+                $ret[(string)$entry->name]= array(
+                    'type' => (string)$entry['kind'],
+                    'commit' => (string)$entry->commit['revision'],
+                    'author' => (string)$entry->commit->author,
+                    'date' => new \DateTime((string)$entry->commit->date)
+                );
+            }
+        }
+        return $ret;
     }
 
     function put($path, $content, $message)
     {
-        if (!is_dir($this->local(dirname($path)))) {
-            $this->mkdir($this->local(dirname($path)));
+        $dir = dirname($path);
+        if (!$this->has($dir, 'dir')) {
+            $this->mkdir($dir);
         }
-        file_put_contents($this->local($path), $content);
-        $this->svn('add', $this->local($path));
+        $this->adapter->create($path, $content);
+        $this->svn('add', $path);
         $this->messages[]= $message;
+    }
+
+
+    function has($path, $type) {
+        try {
+            $info = simplexml_load_string($this->adapter->exec('info', '--xml', $path));
+            return (string)($info->entry[0]['kind']) == $type;
+        } catch (Svn\CommandFailedException $e) {
+            return false;
+        }
     }
 
 
@@ -82,62 +153,56 @@ class Svn implements ClientInterface
 
     function push()
     {
-        $this->svn('commit', $this->local(), '--message', implode("\n", $this->messages));
+        $this->svn('commit', '--message', implode("\n", $this->messages));
     }
 
 
     function pull()
     {
-        if (!is_dir($this->wd)) {
-            $this->svn('checkout', $this->remote, $this->wd);
+        $this->svn('update');
+    }
+
+
+    function log($path, $limit = 10)
+    {
+        $ret = array();
+        if ($limit) {
+            $data = $this->svn('log', '--xml', $path, '--limit', $limit);
         } else {
-            $this->svn('update', $this->wd);
+            $data = $this->svn('log', '--xml', $path);
         }
-    }
-
-    function __destruct()
-    {
-        if (is_dir($this->remote)) {
-            shell_exec('rm -rf ' . $this->remote);
+        if ($data) {
+            foreach (simplexml_load_string($data)->logentry as $entry) {
+                $ret[]= array(
+                    'commit' => (string)$entry['revision'],
+                    'author' => (string)$entry->author,
+                    'date' => new \DateTime((string)$entry->date),
+                    'message' => (string)$entry->msg
+                );
+            }
         }
+        return $ret;
     }
 
-
-    function log($path)
-    {
-        return $this->svn('log', $this->local($path));
-    }
-
-
-    function local($path = '')
-    {
-        return $this->wd . ($path ? '/' . $path : '');
-    }
-
-
-    function remote($path = '')
-    {
-        return $this->remote . ($path ? '/' . $path : '');
-    }
+//
+//    function getCommit($commit) {
+//        if ($entry = simplexml_load_string($this->adapter->exec('log', '-c' . $commit))) {
+//            return array(
+//                'commit' => $entry['revision'],
+//                'author' => $entry->author,
+//                'date' => new \DateTime((string)$entry->date),
+//                'message' => $entry->msg
+//            );
+//        }
+//        return null;
+//    }
 
 
 
-    protected function svn($cmd) {
-        $args = func_get_args();
-        $commandLine = sprintf(
-            '%s %s',
-            escapeshellcmd(self::$binary),
-            escapeshellarg(array_shift($args)) // command name
+    protected function svn() {
+        return call_user_func_array(
+            array($this->adapter, 'exec'),
+            func_get_args()
         );
-        foreach ($args as $arg) {
-            $commandLine .= ' ' . escapeshellarg($arg);
-        }
-        $p = new Process($commandLine);
-        if ($p->run(function($type, $data) {
-            var_dump($data);
-        })) {
-            throw new \Symfony\Component\Process\Exception\ProcessFailedException($p);
-        }
-        return $p->getOutput();
     }
 }
