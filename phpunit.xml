@@ -1,3 +1,13 @@
 <phpunit bootstrap="autoload.php">
+    <testsuite>
+        <whitelist>
+            <directory suffix="Test.php">./src/</directory>
+        </whitelist>
+    </testsuite>
 
+    <filter>
+        <whitelist>
+            <directory>./src/</directory>
+        </whitelist>
+    </filter>
 </phpunit>
