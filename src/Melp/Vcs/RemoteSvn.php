@@ -8,14 +8,6 @@ namespace Melp\Vcs;
 
 class RemoteSvn extends SvnAbstract
 {
-    protected $remote = null;
-
-    function __construct(Svn\AdapterInterface $adapter)
-    {
-        $this->adapter = $adapter;
-    }
-
-
     function rm($path, $message)
     {
         $this->svn('rm', $this->absUrl($path), '--message', $message);
@@ -63,7 +55,7 @@ class RemoteSvn extends SvnAbstract
 
     function ls($path = '')
     {
-        $response = simplexml_load_string($this->svn('ls', '--xml', $path));
+        $response = simplexml_load_string($this->svn('ls', '--xml', $this->absUrl($path)));
         return $this->parseLs($response);
     }
 
@@ -120,5 +112,4 @@ class RemoteSvn extends SvnAbstract
     {
         return rtrim($this->remote, '/') . '/' . ltrim($path, '/');
     }
-
 }

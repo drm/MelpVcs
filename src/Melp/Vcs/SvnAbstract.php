@@ -6,6 +6,25 @@ abstract class SvnAbstract implements ClientInterface
 {
     protected $remote;
 
+    function __construct(Svn\AdapterInterface $adapter)
+    {
+        $this->adapter = $adapter;
+    }
+
+    function getCommit($commit, $path = null) {
+        $entry = simplexml_load_string($this->adapter->exec('log', '-c' . $commit, '--xml', $this->remote . '/' . $path));
+        if ($entry = $entry->logentry) {
+            return array(
+                'commit' => (string)$entry['revision'],
+                'author' => (string)$entry->author,
+                'date' => new \DateTime((string)$entry->date),
+                'message' => (string)$entry->msg
+            );
+        }
+        return null;
+    }
+
+
     static function splitUrl($url, $part = null)
     {
         if (!preg_match('~(.*)((branches|tags)/[^/]+|trunk)/?$~', $url, $m)) {

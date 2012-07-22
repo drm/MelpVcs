@@ -18,4 +18,5 @@ interface ClientInterface {
     function push();
     function pull();
     function log($path);
+    function getCommit($commit, $path = null);
 }

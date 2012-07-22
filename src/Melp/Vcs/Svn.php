@@ -10,12 +10,6 @@ class Svn extends SvnAbstract implements ClientInterface
 {
     protected $messages = array();
 
-
-    function __construct(Svn\AdapterInterface $adapter)
-    {
-        $this->adapter = $adapter;
-    }
-
     function rm($path, $message)
     {
         $this->svn('rm', $path);
@@ -133,20 +127,6 @@ class Svn extends SvnAbstract implements ClientInterface
         }
         return $ret;
     }
-
-
-//
-//    function getCommit($commit) {
-//        if ($entry = simplexml_load_string($this->adapter->exec('log', '-c' . $commit))) {
-//            return array(
-//                'commit' => $entry['revision'],
-//                'author' => $entry->author,
-//                'date' => new \DateTime((string)$entry->date),
-//                'message' => $entry->msg
-//            );
-//        }
-//        return null;
-//    }
 }
 
 
