@@ -10,6 +10,7 @@ interface ClientInterface {
     function branch($name, $switch = true);
     function checkout($branch);
     function tag($name);
+    function has($path, $type);
     function get($path);
     function ls($path = '');
     function rm($path, $message);

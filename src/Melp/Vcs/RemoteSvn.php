@@ -42,12 +42,22 @@ class RemoteSvn extends SvnAbstract
         $this->svn('cp', $this->remote, $this->getTagUrl($name), '--message', $msg);
     }
 
+    function has($path, $type)
+    {
+        try {
+            $info = simplexml_load_string($this->adapter->exec('info', '--xml', $this->absUrl($path)));
+            return (string)($info->entry[0]['kind']) == $type;
+        } catch (Svn\CommandFailedException $e) {
+            return false;
+        }
+    }
 
     function get($path)
     {
         try {
             return $this->svn('cat', $this->absUrl($path));
         } catch(Svn\CommandFailedException $e) {
+            echo $e->getMessage();
             return null;
         }
     }
@@ -60,7 +70,11 @@ class RemoteSvn extends SvnAbstract
 
     function put($path, $content, $message)
     {
+        // we'll need a temporary working copy for this, since SVN does not support putting remote files directly.
         $adapter = clone $this->adapter;
+        if (!$this->has(dirname($path), 'dir')) {
+            $this->svn('mkdir', $this->absUrl(dirname($path)), '--parents', '--message', $message);
+        }
         $svn = new Svn($adapter);
         $svn->init($this->absUrl(dirname($path)));
         $svn->put(basename($path), $content, $message);

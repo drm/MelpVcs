@@ -37,25 +37,34 @@ class SvnFeatureTest extends \PHPUnit_Framework_TestCase
 
     /**
      * @test
+     * @dataProvider implementations
      */
-    function functional() {
-        $client1 = new \Melp\Vcs\Svn(new \Melp\Vcs\Svn\CliAdapter());
+    function functional($impl1, $impl2) {
+        $refl1 = new \ReflectionClass('\Melp\Vcs\\' . $impl1);
+        $refl2 = new \ReflectionClass('\Melp\Vcs\\' . $impl2);
+
+        $client1 = $refl1->newInstance(new \Melp\Vcs\Svn\CliAdapter());
         $client1->init($this->url);
         $client1->pull();
 
         $data1 = 'Hello';
         $client1->put('foo/bar.txt', $data1, 'Hello hello');
         $client1->push();
+        $this->assertTrue($client1->has('foo/bar.txt', 'file'));
         $this->assertEquals($data1, $client1->get('foo/bar.txt'));
 
-        $client2 = new \Melp\Vcs\RemoteSvn(new \Melp\Vcs\Svn\CliAdapter());
+        $client2 = $refl2->newInstance(new \Melp\Vcs\Svn\CliAdapter());
         $client2->init($this->url);
+        $this->assertTrue($client2->has('foo/bar.txt', 'file'));
         $this->assertEquals($data1, $client2->get('foo/bar.txt'));
 
         $data2 = 'Goodbye';
         $client2->put('foo/bar.txt', $data2, "You say hello, I say goodbye");
 
-        $this->assertEquals($data1, $client1->get('foo/bar.txt'));
+        if ($impl1 == 'Svn') {
+            // local svn checkout should not have been changed yet
+            $this->assertEquals($data1, $client1->get('foo/bar.txt'));
+        }
         $client2->push();
 
         $client1->pull();
@@ -79,5 +88,16 @@ class SvnFeatureTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals(null, $client2->get("foo/bar/baz.txt"));
         $client2->checkout('qux');
         $this->assertEquals('Waaa', $client2->get("foo/bar/baz.txt"));
+    }
+
+
+    function implementations() {
+        $i = array('Svn', 'RemoteSvn');
+        return array(
+            array($i[0], $i[0]),
+            array($i[1], $i[1]),
+            array($i[0], $i[1]),
+            array($i[1], $i[0])
+        );
     }
 }

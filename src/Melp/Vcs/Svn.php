@@ -103,7 +103,7 @@ class Svn extends SvnAbstract implements ClientInterface
 
     function mkdir($dir)
     {
-        $this->svn('mkdir', $dir);
+        $this->svn('mkdir', $dir, '--parents');
     }
 
 
@@ -115,7 +115,7 @@ class Svn extends SvnAbstract implements ClientInterface
 
     function pull()
     {
-        $this->svn('update');
+        $this->svn('update', '--set-depth', 'infinity');
     }
 
 
