@@ -48,7 +48,7 @@ class SvnFeatureTest extends \PHPUnit_Framework_TestCase
         $client1->push();
         $this->assertEquals($data1, $client1->get('foo/bar.txt'));
 
-        $client2 = new \Melp\Vcs\Svn(new \Melp\Vcs\Svn\CliAdapter());
+        $client2 = new \Melp\Vcs\RemoteSvn(new \Melp\Vcs\Svn\CliAdapter());
         $client2->init($this->url);
         $this->assertEquals($data1, $client2->get('foo/bar.txt'));
 

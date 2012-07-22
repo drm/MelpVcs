@@ -83,7 +83,7 @@ class CliAdapter implements \Melp\Vcs\Svn\AdapterInterface
     function init($remote)
     {
         if (!is_dir($this->wd)) {
-            $this->exec('checkout', $remote, $this->wd);
+            $this->exec('checkout', $remote, $this->wd, '--depth', 'immediates');
         }
     }
 

@@ -6,9 +6,8 @@
 
 namespace Melp\Vcs;
 
-class Svn implements ClientInterface
+class Svn extends SvnAbstract implements ClientInterface
 {
-    protected $remote;
     protected $messages = array();
 
 
@@ -52,40 +51,6 @@ class Svn implements ClientInterface
     }
 
 
-    function getBranchUrl($name)
-    {
-        return $this->getPseudoRoot() . '/branches/' . $name;
-    }
-
-
-    function getTagUrl($name)
-    {
-        return $this->getPseudoRoot() . '/tags/' . $name;
-    }
-
-
-    function getTrunkUrl()
-    {
-        return $this->getPseudoRoot() . '/trunk';
-    }
-
-    static function splitUrl($url, $part = null)
-    {
-        if (!preg_match('~(.*)((branches|tags)/[^/]+|trunk)/?$~', $url, $m)) {
-            throw new \UnexpectedValueException("Can not find pseudo root for url {$url}");
-        }
-        $ret = array(rtrim($m[1], '/'), $m[2]);
-        if (null !== $part) {
-            $ret = $ret[$part];
-        }
-        return $ret;
-    }
-
-    private function getPseudoRoot()
-    {
-        return self::splitUrl($this->remote, 0);
-    }
-
     /**
      * @param $name
      * @param string $msg
@@ -109,19 +74,10 @@ class Svn implements ClientInterface
 
     function ls($path = '')
     {
-        $ret = array();
-        foreach (simplexml_load_string($this->svn('ls', '--xml', $path))->list as $list) {
-            foreach ($list as $entry) {
-                $ret[(string)$entry->name]= array(
-                    'type' => (string)$entry['kind'],
-                    'commit' => (string)$entry->commit['revision'],
-                    'author' => (string)$entry->commit->author,
-                    'date' => new \DateTime((string)$entry->commit->date)
-                );
-            }
-        }
-        return $ret;
+        $response = simplexml_load_string($this->svn('ls', '--xml', $path));
+        return $this->parseLs($response);
     }
+
 
     function put($path, $content, $message)
     {
@@ -172,17 +128,12 @@ class Svn implements ClientInterface
             $data = $this->svn('log', '--xml', $path);
         }
         if ($data) {
-            foreach (simplexml_load_string($data)->logentry as $entry) {
-                $ret[]= array(
-                    'commit' => (string)$entry['revision'],
-                    'author' => (string)$entry->author,
-                    'date' => new \DateTime((string)$entry->date),
-                    'message' => (string)$entry->msg
-                );
-            }
+            $response = simplexml_load_string($data);
+            $ret = $this->parseLog($response);
         }
         return $ret;
     }
+
 
 //
 //    function getCommit($commit) {
@@ -196,13 +147,7 @@ class Svn implements ClientInterface
 //        }
 //        return null;
 //    }
-
-
-
-    protected function svn() {
-        return call_user_func_array(
-            array($this->adapter, 'exec'),
-            func_get_args()
-        );
-    }
 }
+
+
+
