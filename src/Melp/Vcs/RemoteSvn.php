@@ -57,7 +57,6 @@ class RemoteSvn extends SvnAbstract
         try {
             return $this->svn('cat', $this->absUrl($path));
         } catch(Svn\CommandFailedException $e) {
-            echo $e->getMessage();
             return null;
         }
     }
