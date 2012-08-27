@@ -1,5 +1,11 @@
 {
-	"require": {
-		"symfony/process": "dev-master"
-	}
+    "name": "melp/vcs",
+    "description": "VCS access through php",
+    "keywords": ["svn","vcs"],
+    "homepage": "http://github.com/drm/MelpVcs",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "symfony/process": "dev-master"
+    }
 }
