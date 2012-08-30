@@ -59,6 +59,8 @@ class CliAdapter implements \Melp\Vcs\Svn\AdapterInterface
         $p = new Process($commandLine, $this->wd);
         if ($p->run()) {
             throw new CliAdapterException($p);
+        } elseif ($p->getErrorOutput()) {
+            throw new \RuntimeException($p->getErrorOutput());
         }
         return $p->getOutput();
     }
