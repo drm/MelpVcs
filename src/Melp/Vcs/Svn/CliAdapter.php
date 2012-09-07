@@ -1,7 +1,9 @@
 <?php
 /**
+ * For licensing information, please see the LICENSE file accompanied with this file.
+ *
  * @author Gerard van Helden <drm@melp.nl>
- * @copyright Gerard van Helden
+ * @copyright 2012 Gerard van Helden <http://melp.nl>
  */
 
 namespace Melp\Vcs\Svn;
@@ -9,14 +11,37 @@ namespace Melp\Vcs\Svn;
 use \Symfony\Component\Process\Process;
 use \Symfony\Component\Process\Exception\ProcessFailedException;
 
+/**
+ * This adapter implements the SVN interface using a command line SVN client.
+ */
 class CliAdapter implements \Melp\Vcs\Svn\AdapterInterface
 {
+    /**
+     * Points to the SVN binary on the local file system.
+     *
+     * @var string
+     */
     public static $binary = '/usr/bin/svn';
 
+    /**
+     * Global arguments added to all commands.
+     *
+     * @var array
+     */
     protected $globalArgs = array(
         '--non-interactive'
     );
 
+
+    /**
+     * Initialize the adapter with a local checkout root and a callback that will generate a name for the
+     * local working copy.
+     *
+     * The arguments default to the system temp directory and a random name prefixed with 'melp_svn_'.
+     *
+     * @param string $checkoutRoot
+     * @param string $workingCopyCallback
+     */
     function __construct($checkoutRoot = null, $workingCopyCallback = null)
     {
         if (is_null($workingCopyCallback)) {
@@ -28,6 +53,11 @@ class CliAdapter implements \Melp\Vcs\Svn\AdapterInterface
     }
 
 
+    /**
+     * Adds a username parameter to the global arguments.
+     *
+     * @param string $username
+     */
     function setUsername($username)
     {
         $this->globalArgs[] = '--username';
@@ -35,6 +65,11 @@ class CliAdapter implements \Melp\Vcs\Svn\AdapterInterface
     }
 
 
+    /**
+     * Adds a password parameter to the global arguments.
+     *
+     * @param string $password
+     */
     function setPassword($password)
     {
         $this->globalArgs[] = '--password';
@@ -42,6 +77,14 @@ class CliAdapter implements \Melp\Vcs\Svn\AdapterInterface
     }
 
 
+    /**
+     * Performs an svn command and passes it to an svn process.
+     *
+     * @param string $cmd
+     * @param mixed $args
+     * @return string
+     * @throws CliAdapterException|\RuntimeException
+     */
     function exec($cmd, $args = null)
     {
         $args = func_get_args();
@@ -68,7 +111,12 @@ class CliAdapter implements \Melp\Vcs\Svn\AdapterInterface
         return $p->getOutput();
     }
 
-
+    /**
+     * Creates a filename in the working copy.
+     *
+     * @param string $file
+     * @param string $contents
+     */
     function create($file, $contents)
     {
         $this->_sane($file);
@@ -79,12 +127,22 @@ class CliAdapter implements \Melp\Vcs\Svn\AdapterInterface
     }
 
 
+    /**
+     * Checks if a file is known to SVN.
+     *
+     * @param string $file
+     */
     function isVersioned($file)
     {
         var_dump($this->exec('info', $file));
     }
 
 
+    /**
+     * Initialize the checkout directory
+     *
+     * @param $remote
+     */
     function init($remote)
     {
         if (!is_dir($this->wd)) {
@@ -93,6 +151,9 @@ class CliAdapter implements \Melp\Vcs\Svn\AdapterInterface
     }
 
 
+    /**
+     * Clear out the local checkout.
+     */
     function cleanup()
     {
         if (is_dir($this->wd)) {
@@ -101,6 +162,12 @@ class CliAdapter implements \Melp\Vcs\Svn\AdapterInterface
     }
 
 
+    /**
+     * Does a sanity check on filenames.
+     *
+     * @param $file
+     * @throws \RuntimeException
+     */
     function _sane($file)
     {
         if (!preg_match('#..|~|^#', $file)) {
@@ -109,6 +176,9 @@ class CliAdapter implements \Melp\Vcs\Svn\AdapterInterface
     }
 
 
+    /**
+     * Cleans up on destruct.
+     */
     function __destruct()
     {
         $this->cleanup();
