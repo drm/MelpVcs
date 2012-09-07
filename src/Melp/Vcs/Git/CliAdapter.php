@@ -6,31 +6,29 @@
  * @copyright 2012 Gerard van Helden <http://melp.nl>
  */
 
-namespace Melp\Vcs\Svn;
+namespace Melp\Vcs\Git;
 
 use \Symfony\Component\Process\Process;
 use \Symfony\Component\Process\Exception\ProcessFailedException;
 
 /**
- * This adapter implements the SVN interface using a command line SVN client.
+ * This adapter implements the GIT interface using a command line GIT client.
  */
-class CliAdapter implements \Melp\Vcs\Svn\AdapterInterface
+class CliAdapter /*implements \Melp\Vcs\Git\AdapterInterface*/
 {
     /**
-     * Points to the SVN binary on the local file system.
+     * Points to the Git binary on the local file system.
      *
      * @var string
      */
-    public static $binary = '/usr/bin/svn';
+    public static $binary = '/usr/bin/git';
 
     /**
      * Global arguments added to all commands.
      *
      * @var array
      */
-    protected $globalArgs = array(
-        '--non-interactive'
-    );
+    protected $globalArgs = array();
 
 
     /**
@@ -46,35 +44,35 @@ class CliAdapter implements \Melp\Vcs\Svn\AdapterInterface
     {
         if (is_null($workingCopyCallback)) {
             $workingCopyCallback = function() {
-                return 'melp_svn_' . rand();
+                return 'melp_vcs_' . rand();
             };
         }
         $this->wd = $checkoutRoot ? : sys_get_temp_dir() . '/' . call_user_func($workingCopyCallback);
     }
 
 
-    /**
-     * Adds a username parameter to the global arguments.
-     *
-     * @param string $username
-     */
-    function setUsername($username)
-    {
-        $this->globalArgs[] = '--username';
-        $this->globalArgs[] = $username;
-    }
-
-
-    /**
-     * Adds a password parameter to the global arguments.
-     *
-     * @param string $password
-     */
-    function setPassword($password)
-    {
-        $this->globalArgs[] = '--password';
-        $this->globalArgs[] = $password;
-    }
+//    /**
+//     * Adds a username parameter to the global arguments.
+//     *
+//     * @param string $username
+//     */
+//    function setUsername($username)
+//    {
+//        $this->globalArgs[] = '--username';
+//        $this->globalArgs[] = $username;
+//    }
+//
+//
+//    /**
+//     * Adds a password parameter to the global arguments.
+//     *
+//     * @param string $password
+//     */
+//    function setPassword($password)
+//    {
+//        $this->globalArgs[] = '--password';
+//        $this->globalArgs[] = $password;
+//    }
 
 
     /**
@@ -104,9 +102,9 @@ class CliAdapter implements \Melp\Vcs\Svn\AdapterInterface
             throw new CliAdapterException($p);
         } elseif ($message = $p->getErrorOutput()) {
             // TODO find out which messages would really constitute errors.
-            if (strpos($message, 'warning') === false) {
-                throw new \RuntimeException($message);
-            }
+//            if (strpos($message, 'warning') === false) {
+//                throw new \RuntimeException($message);
+//            }
         }
         return $p->getOutput();
     }
@@ -120,10 +118,31 @@ class CliAdapter implements \Melp\Vcs\Svn\AdapterInterface
     function create($file, $contents)
     {
         $this->_sane($file);
-        if (!is_dir($dir = dirname($this->wd . '/' . $file))) {
+        $local = $this->local($file);
+        if (!is_dir($dir = dirname($local))) {
             mkdir($dir, 0777 | umask(), true);
         }
-        file_put_contents($this->wd . '/' . $file, $contents);
+        file_put_contents($local, $contents);
+        $this->exec('add', $local);
+    }
+
+
+    function remove($file) {
+        $local = $this->local($file);
+        unlink($local);
+        $this->exec('add', $local);
+    }
+
+    public function local($file)
+    {
+        return $this->wd . '/' . $file;
+    }
+
+
+    function get($file) {
+        $this->_sane($file);
+        $local = $this->local($file);
+        return file_get_contents($local);
     }
 
 
@@ -135,7 +154,7 @@ class CliAdapter implements \Melp\Vcs\Svn\AdapterInterface
     function init($remote)
     {
         if (!is_dir($this->wd)) {
-            $this->exec('checkout', $remote, $this->wd, '--depth', 'immediates');
+            $this->exec('clone', $remote, $this->wd);
         }
     }
 
