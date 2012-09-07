@@ -128,17 +128,6 @@ class CliAdapter implements \Melp\Vcs\Svn\AdapterInterface
 
 
     /**
-     * Checks if a file is known to SVN.
-     *
-     * @param string $file
-     */
-    function isVersioned($file)
-    {
-        var_dump($this->exec('info', $file));
-    }
-
-
-    /**
      * Initialize the checkout directory
      *
      * @param $remote
