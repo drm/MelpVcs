@@ -179,6 +179,10 @@ class RemoteSvn extends SvnAbstract
         }
     }
 
+    function export($path)
+    {
+        $this->svn('export', $this->remote, $path);
+    }
 
     /**
      * Get a log from the remote for the specified path.
