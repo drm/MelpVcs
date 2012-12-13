@@ -6,7 +6,7 @@
     "type": "library",
     "license": "MIT",
     "require": {
-        "symfony/process": "dev-master"
+        "symfony/process": "*"
     },
     "autoload": {
         "psr-0": { "Melp\\Vcs": "src/" }
